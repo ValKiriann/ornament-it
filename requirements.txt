@@ -1,0 +1,8 @@
+shapely==2.2.0
+trimesh==5.2.2
+manifold3d==3.5.5
+numpy==2.5.5
+fonttools==4.69.0
+uharfbuzz==0.57.0
+mapbox-earcut==2.1.0
+scipy==1.18.1

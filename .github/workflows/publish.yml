@@ -1,0 +1,92 @@
+name: Publish image
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - run: pip install --only-binary=:all: -r requirements.txt
+      - run: python -m unittest discover -s tests -v
+      - name: Image coordinates
+        id: image
+        env:
+          REPO: ${{ github.repository }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          python - <<'PY'
+          import os
+          from app import VERSION
+          if os.environ['REF_TYPE'] == 'tag' and os.environ['REF_NAME'] != 'v' + VERSION:
+              raise SystemExit('Tag and app.VERSION must match')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write('name=ghcr.io/' + os.environ['REPO'].lower() + '\n')
+              f.write('version=' + VERSION + '\n')
+          PY
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build Linux amd64 image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: |
+            ${{ steps.image.outputs.name }}:${{ steps.image.outputs.version }}
+            ${{ steps.image.outputs.name }}:sha-${{ github.sha }}
+          build-args: |
+            VERSION=${{ steps.image.outputs.version }}
+            VCS_REF=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Test the built container
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}:${{ steps.image.outputs.version }}
+        run: |
+          docker run -d --name ornament-poc --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m --cap-drop ALL --security-opt no-new-privileges "$IMAGE"
+          for attempt in $(seq 1 30); do
+            if docker exec ornament-poc python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8768/healthz',timeout=2)"; then break; fi
+            sleep 2
+          done
+          docker exec -i ornament-poc python - <<'PY'
+          import io, urllib.request, trimesh
+          from generador import audit
+          url='http://127.0.0.1:8768/export?nombre=Adri%C3%A1n'
+          data=urllib.request.urlopen(url,timeout=60).read()
+          check=audit(trimesh.load_mesh(io.BytesIO(data),file_type='stl'))
+          assert check['piezas']==2 and check['cerrada'] and not check['aristas_non_manifold'], check
+          print(check)
+          PY
+          test "$(docker exec ornament-poc id -u)" != 0
+      - name: Publish tested image
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+          VERSION: ${{ steps.image.outputs.version }}
+        run: |
+          docker push "$IMAGE:$VERSION"
+          docker push "$IMAGE:sha-$GITHUB_SHA"
+      - name: Container logs
+        if: always()
+        run: docker logs ornament-poc || true
+      - name: Cleanup
+        if: always()
+        run: docker rm -f ornament-poc || true
