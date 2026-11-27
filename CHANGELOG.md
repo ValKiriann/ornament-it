@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.2.0
+
+- Interfaz Cinco Rosas con transparencias y modales de descarga y ayuda.
+- El helper de base sigue la línea de escritura tipográfica; ya no baja hasta la cola de la j de Borja ni otros descendentes.
+- La vista previa y la descarga usan los valores reales del generador; se conservan los avisos de sujeción y la validación de STL.
+- Las vistas previas se agrupan para evitar solicitudes simultáneas desde la misma página.
+- Registrada la impresión satisfactoria de Elsa comunicada por la usuaria.
+
 ## 0.1.2
 
 - Checkbox para quitar solo el helper de base, manteniendo los apoyos de puntos y acentos.

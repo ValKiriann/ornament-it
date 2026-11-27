@@ -6,7 +6,7 @@ import io, json, logging, os, threading, unicodedata
 import trimesh
 from generador import generate, preview, audit, ROOT
 
-VERSION = '0.1.2'
+VERSION = '0.2.0'
 COMMIT = os.environ.get('ORNAMENT_COMMIT', 'development')
 GEOMETRY_SLOT = threading.BoundedSemaphore(1)
 LOG = logging.getLogger('ornament-it')
@@ -45,7 +45,7 @@ class Handler(BaseHTTPRequestHandler):
             self.json_response(429, {'error': 'Hay otra generación en curso. Vuelve a intentarlo en unos segundos.'})
             return
         try:
-            q = parse_qs(url.query)
+            q = parse_qs(url.query,keep_blank_values=True)
             args = (q.get('nombre', ['Elisa'])[0], float(q['tamano'][0]) if 'tamano' in q else None, float(q.get('posicion', ['0'])[0]))
             fill = float(q.get('escala', ['100'])[0])
             helper = q.get('helper', ['1'])[0]

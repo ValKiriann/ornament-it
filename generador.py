@@ -185,13 +185,18 @@ def prepare(name='Elisa',size=None,shift=0,*,fill=100,base_helper_enabled=True):
     raw,glyphs=text_shape(name,with_glyphs=True)
     text,glyphs=fit_text(raw,glyphs,size,shift,fill)
     a,b,c,d=text.bounds
+    # HarfBuzz lays horizontal text on font Y=0. Recover that line after
+    # the uniform fit, instead of following descenders in j/g/p/q/y.
+    text_scale=(d-b)/(raw.bounds[3]-raw.bounds[1])
+    baseline_y=b-raw.bounds[1]*text_scale
     report={'nombre':name,'ancho_texto_mm':round(c-a,3),'alto_texto_mm':round(d-b,3),
             'escala_porcentaje':fill,
             'radio_limite_texto_mm':round(TEXT_RADIUS*fill/100+abs(shift)*abs(1-fill/100),3),
-            'letras_z_mm':3,'helpers_z_mm':1.2,'helpers_ancho_mm':1,'version_helpers':2,
+            'letras_z_mm':3,'helpers_z_mm':1.2,'helpers_ancho_mm':1,'version_helpers':3,
+            'linea_base_texto_mm':round(baseline_y,4),
             'helper_base':base_helper_enabled,'apoyos_de_marcas':[], 'enlaces_automaticos':0,
             'puede_exportar':True,
-            'aviso':('Nombre reducido: revisa que los trazos sean adecuados para tu impresora.' if d-b<10 else 'Prototipo: pendiente de prueba física de impresión.')}
+            'aviso':('Nombre reducido: revisa que los trazos sean adecuados para tu impresora.' if d-b<10 else 'Revisa el diseño y la sujeción antes de imprimir.')}
     accent_links=[]; anchors=[]
     for glyph in glyphs:
         parts=components(glyph)
@@ -207,7 +212,8 @@ def prepare(name='Elisa',size=None,shift=0,*,fill=100,base_helper_enabled=True):
         support=attachment_report(unary_union([text,helpers]))
         report.update(sujecion=support,puede_exportar=support['estado']=='unido')
         return name,text,helpers,report
-    bar_y=b+1.65
+    bar_y=baseline_y+1.65
+    report['helper_base_y_mm']=round(bar_y,4)
     half=math.sqrt(26.5**2-(bar_y-1.03)**2)
     helpers=box(1.64-half,bar_y-.5,1.64+half,bar_y+.5)
     # Join each accent to its own glyph first. Only then connect whole regions
@@ -261,12 +267,12 @@ def preview(name='Elisa',size=None,shift=0,*,fill=100,base_helper_enabled=True):
         if g.is_empty: return ''
         return f'<path fill="{color}" fill-rule="evenodd" d="'+''.join('M'+' L'.join(f'{x:.4f},{-y:.4f}' for x,y in ring.coords)+'Z' for p in components(g) for ring in [p.exterior,*p.interiors])+'"/>'
     base=load_base(); basepaths=[]
-    for key,color in [('copo','#d8e7de'),('aro','#c5a46b')]:
+    for key,color in [('copo','#fff8fb'),('aro','#FB6F92')]:
         m=base[key]; v=m.vertices; fs=m.faces
         top=v[fs][:,:,2].min(axis=1)>2.9
         polygons=unary_union([Polygon(v[f,:2]) for f in fs[top] if Polygon(v[f,:2]).area>1e-9])
         basepaths.append(path(polygons,color))
-    svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="-44 -44 90 90">'+''.join(basepaths)+path(helpers,'#e8a273')+path(text,'#314e51')+'</svg>'
+    svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="-44 -44 90 90" role="img" aria-label="Vista previa del adorno">'+''.join(basepaths)+path(helpers,'#b87952')+path(text,'#663043')+'</svg>'
     return svg,report
 
 if __name__=='__main__':

@@ -12,12 +12,12 @@ import trimesh
 import numpy as np
 import shapely
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from app import make_server, GEOMETRY_SLOT
+from app import make_server, GEOMETRY_SLOT, VERSION
 from generador import audit, generate, prepare, text_shape, TEXT_RADIUS
 
 class GeometryTests(unittest.TestCase):
     def test_reopened_stl(self):
-        for name in ('Elsa', 'Elisa', 'Adrián', 'ADRIÁN', 'Toñi', 'Iñaki', 'María', 'Maximiliano', 'I'):
+        for name in ('Borja','Sergio','Jorge','Goyo','Pepe','Elsa', 'Elisa', 'Adrián', 'ADRIÁN', 'Toñi', 'Iñaki', 'María', 'Maximiliano', 'I'):
             with self.subTest(name=name):
                 mesh, report = generate(name)
                 exported = mesh.export(file_type='stl')
@@ -57,6 +57,22 @@ class GeometryTests(unittest.TestCase):
                 self.assertAlmostEqual(report['ancho_texto_mm']/full['ancho_texto_mm'],percent/100,places=4)
         for invalid in (39,107,float('nan'),float('inf')):
             with self.assertRaises(ValueError): prepare('Elsa',fill=invalid)
+
+    def test_base_tracks_writing_line_instead_of_descender(self):
+        for name in ('Borja','Sergio','Jorge','Goyo','Pepe'):
+            for fill,shift in ((100,0),(40,-3),(106,3)):
+                with self.subTest(name=name,fill=fill,shift=shift):
+                    raw=text_shape(name)
+                    _,text,helpers,report=prepare(name,fill=fill,shift=shift)
+                    factor=(text.bounds[3]-text.bounds[1])/(raw.bounds[3]-raw.bounds[1])
+                    writing_line=text.bounds[1]-raw.bounds[1]*factor
+                    # Probe the actual helper near the edge, away from letters,
+                    # so the test checks the generated bar rather than metadata.
+                    x=1.64-np.sqrt(26.5**2-(writing_line+1.65-1.03)**2)+.1
+                    section=helpers.intersection(shapely.geometry.LineString([(x,-30),(x,30)]))
+                    self.assertFalse(section.is_empty)
+                    self.assertAlmostEqual(section.centroid.y,writing_line+1.65,places=5)
+                    self.assertGreater(report['helper_base_y_mm']-(text.bounds[1]+1.65),1)
 
     def test_optional_helpers_check_loose_and_weak_attachments(self):
         for name,fill,state in (('Elsa',100,'suelto'),('Elsa',103,'debil'),
@@ -119,7 +135,7 @@ class HttpTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.server.shutdown(); cls.server.server_close(); cls.thread.join()
     def test_health_and_no_history(self):
-        self.assertEqual(json.load(urllib.request.urlopen(self.base+'/healthz'))['version'],'0.1.2')
+        self.assertEqual(json.load(urllib.request.urlopen(self.base+'/healthz'))['version'],VERSION)
         with urllib.request.urlopen(self.base+'/export?'+urllib.parse.urlencode({'nombre':'Adrián'})) as response:
             self.assertIn('adorno-adrian.stl',response.headers['Content-Disposition'])
             mesh=trimesh.load_mesh(io.BytesIO(response.read()),file_type='stl')
@@ -133,8 +149,11 @@ class HttpTests(unittest.TestCase):
             self.assertEqual(ctx.exception.code,429)
         finally: GEOMETRY_SLOT.release()
     def test_invalid_name(self):
-        with self.assertRaises(urllib.error.HTTPError) as ctx: urllib.request.urlopen(self.base+'/export?nombre=%3Cscript%3E')
-        self.assertEqual(ctx.exception.code,400)
+        for name in ('%3Cscript%3E',''):
+            with self.subTest(name=name):
+                with self.assertRaises(urllib.error.HTTPError) as ctx:
+                    urllib.request.urlopen(self.base+'/export?nombre='+name)
+                self.assertEqual(ctx.exception.code,400)
 
     def test_preview_uses_automatic_fit_and_scale(self):
         full=json.load(urllib.request.urlopen(self.base+'/preview?nombre=Elsa'))['info']

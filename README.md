@@ -1,7 +1,7 @@
 # ornament-it
 
 Personalizador de adornos imprimibles con nombres en Lobster y helpers automáticos.
-POC 0.1.2 para uso en red local o VPN. Conserva el copo y aro del diseño de referencia;
+POC 0.2.0 para uso en red local o VPN. Conserva el copo y aro del diseño de referencia;
 une el nombre y sus apoyos al aro, manteniendo el copo independiente.
 
 ## Ejecutar el contenedor
@@ -11,7 +11,7 @@ docker run --rm --name ornament-it \
   -p 127.0.0.1:8768:8768 \
   --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m \
   --cap-drop ALL --security-opt no-new-privileges \
-  ghcr.io/valkiriann/ornament-it:0.1.2
+  ghcr.io/valkiriann/ornament-it:0.2.0
 ```
 
 Abrir http://127.0.0.1:8768. Para el homelab, el Compose está en
@@ -22,6 +22,19 @@ La aplicación genera y comprueba el STL en memoria. No conserva nombres, STL ni
 historial; no necesita un volumen de datos ni Fusion instalado. Las descargas
 conservan letras de 3 mm y helpers de 1,2 mm de altura y 1 mm de ancho. La base
 original tiene una pequeña desviación de Z de unos 0,0075 mm, que se conserva.
+
+## Interfaz
+
+Diseño **Cinco Rosas** con paneles translúcidos y la paleta `#FFE5EC`, `#FFC2D1`,
+`#FFB3C6`, `#FF8FAB` y `#FB6F92`. La vista previa y los controles siguen conectados
+al generador. **Descargar STL** abre un resumen con el nombre, tamaño y estado de
+la base; **Generar y descargar** crea y comprueba el archivo. El modal **Sobre los
+apoyos** explica la base y los soportes de puntos y tildes. Se cierran con la cruz,
+los botones de regreso, Escape o al pulsar fuera.
+
+La interfaz funciona sin fuentes, iconos ni bibliotecas externas de Internet.
+Los cambios rápidos se agrupan y las vistas previas se solicitan de una en una;
+el botón de descarga queda deshabilitado mientras el diseño está pendiente.
 
 ## Tamaño del nombre
 
@@ -37,6 +50,10 @@ El parámetro anterior `tamano` sigue aceptando una altura máxima en milímetro
 (8..48), aunque la interfaz utiliza porcentaje para evitar tramos sin efecto.
 
 ## Helper de base opcional
+
+La base se coloca 1,65 mm por encima de la **línea de escritura de la fuente**,
+transformada junto con el texto. Las colas de j, g, p, q o y no bajan el puente.
+Por ejemplo, en Borja se apoya en el cuerpo de la palabra y no al final de la j.
 
 El checkbox **Helper de base**, activado inicialmente, quita únicamente el puente
 horizontal y sus enlaces de unión al nombre. Los apoyos del punto de la i y de
@@ -75,9 +92,9 @@ las solicitudes adicionales reciben una respuesta de ocupado.
 
 1. Cambiar `VERSION` en `app.py` y documentar los cambios.
 2. Enviar el código a GitHub y comprobar CI.
-3. Crear y subir una etiqueta como `v0.1.2`.
+3. Crear y subir una etiqueta como `v0.2.0`.
 4. El workflow prueba los nombres, construye la imagen, prueba el contenedor con
-   un STL reabierto y publica `:0.1.2` y `:sha-<commit-completo>` en GHCR.
+   un STL reabierto y publica `:0.2.0` y `:sha-<commit-completo>` en GHCR.
 5. Actualizar la referencia de imagen del Compose en `homelab` y redesplegar con Komodo.
 
 Cada etiqueta de versión corresponde a una publicación. No reutilizar una etiqueta
@@ -93,6 +110,9 @@ Lobster se incluye con su licencia SIL Open Font License en `assets/OFL.txt`.
 
 El prototipo conserva una sola fuente y un máximo de 18 caracteres. Los nombres largos
 se reducen para caber; revisar el grosor de sus trazos antes de imprimir. Los helpers
-son geometría permanente del adorno. Falta la prueba física. La comprobación anterior
+son geometría permanente del adorno. Se ha comunicado una impresión satisfactoria
+de Elsa; los ajustes concretos no se registraron y otros nombres siguen requiriendo
+su propia revisión física. Véase [registro de impresión](docs/printing-checks.md).
+La comprobación anterior
 del giro fue un muestreo cada 5 grados, no una demostración continua del recorrido.
 No hay adaptación ni publicación en MakerWorld.
