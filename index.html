@@ -1,50 +1,254 @@
-<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ornament-it</title>
-<style>*{box-sizing:border-box}body{margin:0;background:#f6f3ed;color:#263b3d;font:17px system-ui}main{max-width:1100px;margin:60px auto;padding:24px;display:grid;grid-template-columns:320px 1fr;gap:55px}h1{font:44px Georgia;margin:12px 0}p{line-height:1.6;color:#5f6e6e}label{display:block;margin:26px 0 8px;font-size:14px;font-weight:650}input{width:100%;padding:12px;border:1px solid #cdd3cd;border-radius:8px;font:inherit;background:white}input[type=range]{padding:0;accent-color:#365c55}button{width:100%;border:0;border-radius:9px;padding:15px;background:#365c55;color:white;font:600 16px system-ui;cursor:pointer;margin-top:20px}button:disabled{opacity:.5;cursor:wait}.preview{background:white;border-radius:24px;display:flex;align-items:center;justify-content:center;min-height:520px;border:1px solid #e2e5df}.preview svg{width:95%;height:95%;max-height:600px}.tag{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#7d8f7b}.hint{font-size:13px}#estado{min-height:45px;font-size:14px}.error{color:#a43f2f}.warning{padding:12px;border-radius:8px;background:#fff0cc;color:#754d08}.check{display:flex;align-items:center;gap:10px}.check input{width:auto;accent-color:#365c55}.legend{display:flex;gap:18px;justify-content:center;font-size:12px;color:#6b7671;margin-top:16px}.dot{width:10px;height:10px;display:inline-block;border-radius:50%;margin-right:6px}@media(max-width:750px){main{margin:15px auto;grid-template-columns:1fr;gap:25px}.preview{min-height:340px}}</style>
-<main><section><span class="tag">ornament-it · POC 0.1.2 · Lobster</span><h1>Tu adorno.</h1><p>Escribe un nombre. Los puentes se colocan automáticamente para sujetar letras, puntos y acentos.</p><label for="nombre">Nombre</label><input id="nombre" value="Elisa" maxlength="18" autocomplete="off"><label for="tamano">Tamaño del nombre · <output id="escala-valor" for="tamano">100 %</output></label><input id="tamano" type="range" min="40" max="106" step="1" value="100"><p class="hint">100 % deja margen al aro. Puedes subir hasta el 106 % para unir el nombre directamente al aro, sin deformar las letras.</p><label for="posicion">Subir o bajar</label><input id="posicion" type="range" min="-3" max="3" step=".25" value="0"><p class="hint">Letras de 3 mm · Helpers de 1,2 mm en altura y 1 mm de ancho. El tamaño se recalcula para cada nombre y posición.</p><label class="check" for="helper"><input id="helper" type="checkbox" checked>Helper de base</label><p class="hint">Al quitar la base se mantienen los apoyos del punto de la i y de los acentos.</p><p id="sujecion" class="hint" role="status" hidden></p><button id="exportar">Descargar STL</button><p id="estado" aria-live="polite">Preparando la vista previa…</p><p class="hint">Pendiente de prueba física. La vista muestra los helpers en naranja; se imprimen unidos al nombre y al aro.</p></section><section><div class="preview" id="preview"></div><div class="legend"><span><i class="dot" style="background:#314e51"></i>Nombre</span><span><i class="dot" style="background:#e8a273"></i>Helpers</span><span><i class="dot" style="background:#c5a46b"></i>Aro y puntas</span></div></section></main>
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#FFE5EC">
+<title>ornament-it · Tu adorno</title>
+<style>
+
+#oit-glass{--rose-light:#FFE5EC;--rose-soft:#FFC2D1;--rose-mid:#FFB3C6;--rose-accent:#FF8FAB;--rose-strong:#FB6F92;--ink:#542b3b;--muted:#805664;--glass:rgba(255,255,255,.57);--blur:20px;--radius:26px;position:relative;isolation:isolate;box-sizing:border-box;min-height:810px;padding:25px;display:flex;flex-direction:column;gap:24px;background:#FFE5EC;background-image:radial-gradient(ellipse at 82% 16%,#FF8FAB 0,transparent 42%),radial-gradient(ellipse at 13% 77%,#FFB3C6 0,transparent 43%);color:var(--ink);font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;color-scheme:light;overflow:hidden}
+#oit-glass *{box-sizing:border-box}
+#oit-glass h1,#oit-glass h2,#oit-glass p{margin:0}
+#oit-glass button,#oit-glass input{font:inherit}
+#oit-glass button{cursor:pointer}
+#oit-glass .glass-surface{background:var(--glass);border:1px solid rgba(255,255,255,.84);border-radius:var(--radius);backdrop-filter:blur(var(--blur)) saturate(115%);-webkit-backdrop-filter:blur(var(--blur)) saturate(115%);box-shadow:0 16px 45px #9a3e5d0c,inset 0 1px 0 #ffffff9e}
+#oit-glass .app-head{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:15px 18px;border-radius:calc(var(--radius)*.7);position:relative;z-index:1}
+#oit-glass .brand{display:flex;align-items:center;gap:8px;font-size:22px;letter-spacing:-1px;font-weight:750;white-space:nowrap}
+#oit-glass .brand i{width:21px;height:21px}
+#oit-glass .head-left{display:flex;align-items:center;gap:20px}
+#oit-glass .head-caption{font-size:12px;color:var(--muted);padding-left:20px;border-left:1px solid #d691a44d}
+#oit-glass .primary{display:flex;align-items:center;justify-content:center;gap:8px;min-height:43px;border:1px solid #fb6f9233;border-radius:13px;padding:11px 16px;font-weight:650;font-size:12px;color:#542b3b;background:#FF8FAB;box-shadow:0 5px 14px #cb5d7e12}
+#oit-glass .primary i{width:15px;height:15px;flex:none}
+#oit-glass .primary:hover{background:#ffa0b8}
+#oit-glass .workspace{display:grid;grid-template-columns:minmax(0,1fr) 292px;gap:23px;flex:1;position:relative;z-index:1}
+#oit-glass .preview{display:flex;flex-direction:column;align-items:center;justify-content:space-between;min-width:0;position:relative;padding:23px 21px;background:rgba(255,255,255,.24)}
+#oit-glass .preview-top{display:flex;align-items:center;justify-content:space-between;gap:20px;width:100%;font-size:11px;color:#865364}
+#oit-glass .preview-top i{width:15px;height:15px}
+#oit-glass .ornament{width:100%;max-width:500px;margin:auto 0;padding:22px 0;filter:drop-shadow(0 8px 5px #aa4a6817)}
+#oit-glass .ornament svg{width:100%;height:auto;display:block;max-height:510px}
+#oit-glass .orn-copo{fill:#fff8fb}
+#oit-glass .orn-aro{fill:#FB6F92}
+#oit-glass .orn-name{fill:#663043}
+#oit-glass .orn-support{fill:#b87952}
+#oit-glass .legend{display:flex;align-items:center;justify-content:center;gap:17px;flex-wrap:wrap;font-size:11px;color:#805664}
+#oit-glass .legend span{display:flex;align-items:center;gap:6px}
+#oit-glass .dot{width:7px;height:7px;border-radius:50%;background:#663043}
+#oit-glass .dot.help{background:#b87952}
+#oit-glass .dot.ring{background:#FB6F92}
+#oit-glass .inspector{padding:26px 23px;display:flex;flex-direction:column;gap:25px}
+#oit-glass .eyebrow{color:#925568;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;font-weight:650}
+#oit-glass h1{font-size:26px;font-weight:700;letter-spacing:-1px;line-height:1.2;margin-top:9px}
+#oit-glass .intro{font-size:12px;color:var(--muted);line-height:1.7;margin-top:11px}
+#oit-glass .form{display:grid;gap:24px}
+#oit-glass .field{display:block;min-width:0}
+#oit-glass .field-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:9px;font-size:12px;font-weight:650}
+#oit-glass output{font-weight:500;font-variant-numeric:tabular-nums}
+#oit-glass .name{width:100%;height:46px;border:1px solid #ffffffd9;border-radius:12px;background:#ffffff96;color:var(--ink);padding:0 13px;font-size:16px;box-shadow:0 2px 9px #a8546f05}
+#oit-glass input[type=range]{accent-color:#FB6F92;width:100%;height:22px;display:block;margin:0}
+#oit-glass .helper-group{padding-top:21px;border-top:1px solid #c98a9c3b}
+#oit-glass .check{display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:13px}
+#oit-glass .check input{width:17px;height:17px;margin:2px 0 0;accent-color:#FB6F92;flex:none}
+#oit-glass .check strong{font-weight:600;display:block}
+#oit-glass .check small{display:block;color:var(--muted);font-size:11px;line-height:1.7;margin-top:5px}
+#oit-glass .text-button{border:0;background:transparent;color:#81445c;font-size:12px;display:inline-flex;align-items:center;gap:7px;padding:8px 0;text-decoration:underline;text-underline-offset:3px}
+#oit-glass .text-button i{width:14px;height:14px}
+#oit-glass .measurements{margin-top:auto;padding-top:23px;display:grid;gap:9px;font-size:11px;color:var(--muted)}
+#oit-glass .measurements div{display:flex;justify-content:space-between;gap:15px}
+#oit-glass .measurements b{font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
+#oit-glass .app-foot{display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap;font-size:11px;color:#8c5c6b;padding:0 8px;position:relative;z-index:1}
+#oit-glass .palette{display:flex;gap:5px;align-items:center}
+#oit-glass .palette span{display:block;width:14px;height:14px;border-radius:50%;border:1px solid #ffffffa6}
+#oit-glass .palette span:first-child{box-shadow:inset 0 0 0 1px #b9788b33}
+#oit-glass .soft-shape{position:absolute;border:1px solid #ffffff57;width:370px;height:370px;border-radius:50%;left:-165px;top:38%;background:#ffb3c66b;pointer-events:none;z-index:0}
+#oit-glass .soft-shape.second{left:auto;right:-90px;top:15%;width:310px;height:310px;background:#fb6f9226;border:1px solid #ffffff29}
+#oit-glass dialog{position:absolute;inset:auto;left:50%;top:100px;transform:translateX(-50%);margin:0;width:430px;max-width:calc(100% - 32px);border:1px solid #fffffff2;border-radius:var(--radius);padding:24px;color:var(--ink);background:rgba(255,249,252,.93);backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);box-shadow:0 25px 90px #6e284533,0 2px 5px #ffffff70;font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;overflow:visible}
+#oit-glass dialog::backdrop{background:rgba(92,32,58,.19);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}
+#oit-glass .modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:15px;margin-bottom:12px}
+#oit-glass .modal-head h2{font-size:22px;line-height:1.2;letter-spacing:-.7px;font-weight:700;margin-top:8px}
+#oit-glass .close{display:flex;align-items:center;justify-content:center;flex:none;width:34px;height:34px;border:1px solid #ffffffed;border-radius:50%;background:#ffffff8c;color:#815263;padding:8px}
+#oit-glass .close i{width:15px;height:15px}
+#oit-glass .modal-intro{font-size:12px;color:var(--muted);line-height:1.7}
+#oit-glass .file-preview{display:grid;grid-template-columns:111px minmax(0,1fr);align-items:center;gap:19px;padding:17px 0;margin-top:5px;border-bottom:1px solid #ebbfcd85}
+#oit-glass .mini{border-radius:17px;background:#FFE5EC;padding:9px}
+#oit-glass .mini svg{width:100%;height:auto;display:block}
+#oit-glass .file-name{font-size:14px;font-weight:650;overflow-wrap:anywhere}
+#oit-glass .file-type{font-size:11px;color:var(--muted);margin-top:6px!important}
+#oit-glass .summary{display:grid;gap:8px;font-size:12px;padding:18px 0}
+#oit-glass .summary div{display:flex;justify-content:space-between;gap:13px}
+#oit-glass .summary span:first-child{color:var(--muted)}
+#oit-glass .modal-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:2px}
+#oit-glass .secondary{border:1px solid #e4b5c4;background:#ffffff8c;color:#754358;border-radius:12px;min-height:42px;padding:10px 15px;font-size:12px}
+#oit-glass .modal-note{font-size:11px;color:var(--muted);min-height:18px;margin-top:16px!important;line-height:1.6}
+#oit-glass .help-section{padding:17px 0;border-bottom:1px solid #ebbfcd85}
+#oit-glass .help-section h3{font-size:13px;font-weight:650;margin:0 0 6px}
+#oit-glass .help-section p{font-size:12px;color:var(--muted);line-height:1.8}
+#oit-glass .help-end{margin-top:21px;display:flex;justify-content:flex-end}
+#oit-glass [hidden]{display:none!important}
+@media(max-width:640px){
+ #oit-glass{padding:15px;gap:17px;min-height:1120px}
+ #oit-glass .app-head{padding:12px 11px;gap:8px}
+ #oit-glass .brand{font-size:19px;gap:5px;letter-spacing:-.7px}
+ #oit-glass .brand i{width:16px;height:16px}
+ #oit-glass .head-caption{display:none}
+ #oit-glass .app-head .primary{font-size:11px;padding:9px 10px;gap:5px;min-height:39px}
+ #oit-glass .app-head .primary i{width:13px;height:13px}
+ #oit-glass .workspace{grid-template-columns:1fr;gap:17px}
+ #oit-glass .preview{padding:19px 15px;min-height:340px}
+ #oit-glass .ornament{padding:18px 0;max-width:420px}
+ #oit-glass .inspector{padding:24px 22px;gap:24px}
+ #oit-glass .form{gap:23px}
+ #oit-glass .measurements{display:none}
+ #oit-glass .app-foot{padding:0 4px}
+ #oit-glass dialog{padding:21px 18px}
+ #oit-glass .modal-head h2{font-size:21px}
+ #oit-glass .file-preview{grid-template-columns:82px minmax(0,1fr);gap:13px}
+ #oit-glass .modal-actions{align-items:stretch;flex-direction:column-reverse}
+ #oit-glass .modal-actions .primary,#oit-glass .modal-actions .secondary{width:100%}
+}
+@media(pointer:coarse){#oit-glass input[type=range]{height:30px}#oit-glass .text-button{min-height:44px}}
+
+html{min-height:100%;background:#FFE5EC}
+body{margin:0;background:#FFE5EC}
+#oit-glass{max-width:1200px;margin:0 auto;min-height:100svh}
+#oit-glass dialog{position:fixed;inset:0;transform:none;margin:auto;width:460px;max-width:calc(100% - 32px);max-height:calc(100dvh - 32px);overflow-y:auto;overscroll-behavior:contain}
+#oit-glass .brand-mark{font-size:23px;font-weight:400;line-height:1}
+#oit-glass .info-icon{width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;border:1px solid currentColor;border-radius:50%;font-size:11px;line-height:1}
+#oit-glass .field-hint{display:block;margin-top:8px;font-size:11px;line-height:1.7;color:var(--muted);font-weight:400}
+#oit-glass .status,#oit-glass .support-note{font-size:12px;line-height:1.7;color:var(--muted)}
+#oit-glass .warning{background:#fff2cc;border:1px solid #ead5a6;border-radius:12px;padding:12px;color:#70491d}
+#oit-glass .error{color:#8a2948}
+#oit-glass .preview-placeholder{text-align:center;padding:90px 10px;color:var(--muted)}
+#oit-glass .primary:disabled{opacity:.5;cursor:wait}
+#oit-glass .close{font-size:24px;line-height:1}
+#oit-glass .summary div span:last-child{text-align:right}
+@media(min-width:1248px){#oit-glass{margin:24px auto;min-height:calc(100svh - 48px);border-radius:32px}}
+@media(max-width:640px){#oit-glass{min-height:100svh}#oit-glass .app-head .primary{font-size:12px;white-space:nowrap}#oit-glass .brand-mark{font-size:19px}}
+</style>
+<main id="oit-glass">
+  <span class="soft-shape" aria-hidden="true"></span><span class="soft-shape second" aria-hidden="true"></span>
+  <header class="app-head glass-surface">
+    <div class="head-left"><div class="brand"><span class="brand-mark" aria-hidden="true">✳</span>ornament-it</div><span class="head-caption">Personalizador de adornos</span></div>
+    <button id="exportar" class="primary" type="button" disabled><span aria-hidden="true">↓</span>Descargar STL</button>
+  </header>
+  <div class="workspace">
+    <section class="preview glass-surface" aria-label="Vista previa del adorno">
+      <div class="preview-top"><span>Tu adorno</span><span aria-hidden="true">✧</span></div>
+      <div id="preview" class="ornament" aria-busy="true"><p class="preview-placeholder">Preparando tu adorno…</p></div>
+      <div class="legend"><span><i class="dot"></i>Nombre</span><span><i class="dot help"></i>Apoyos</span><span><i class="dot ring"></i>Aro</span></div>
+    </section>
+    <section class="inspector glass-surface">
+      <div><span class="eyebrow">A tu gusto</span><h1>El toque final.</h1><p class="intro">Un nombre, unos ajustes y un adorno hecho para ti.</p></div>
+      <div class="form">
+        <label class="field" for="nombre"><span class="field-head">Nombre</span><input id="nombre" class="name" value="Elisa" maxlength="18" autocomplete="off" spellcheck="false"></label>
+        <label class="field" for="tamano"><span class="field-head">Tamaño <output id="escala-valor" for="tamano">100 %</output></span><input id="tamano" aria-label="Tamaño del nombre" aria-describedby="tamano-ayuda" type="range" min="40" max="106" value="100" step="1"><span class="field-hint" id="tamano-ayuda">100 % deja margen al aro. Hasta 106 % para unir el nombre directamente.</span></label>
+        <label class="field" for="posicion"><span class="field-head">Subir o bajar <output id="posicion-valor" for="posicion">0 mm</output></span><input id="posicion" type="range" min="-3" max="3" value="0" step=".25"></label>
+        <div class="helper-group"><label class="check" for="helper"><input id="helper" type="checkbox" checked><span><strong>Helper de base</strong><small>Los apoyos de puntos y acentos se mantienen.</small></span></label><button type="button" class="text-button" id="ayuda"><span class="info-icon" aria-hidden="true">i</span>Sobre los apoyos</button></div>
+      </div>
+      <p id="sujecion" class="support-note" role="status" hidden></p>
+      <p id="estado" class="status" aria-live="polite">Preparando la vista previa…</p>
+      <div class="measurements"><div><span>Altura de letras</span><b>3 mm</b></div><div><span>Altura de apoyos</span><b>1,2 mm</b></div><div><span>Ancho de apoyos</span><b>1 mm</b></div></div>
+    </section>
+  </div>
+  <footer class="app-foot"><span>ornament-it · 0.2.0 · Lobster</span><span>Los apoyos se imprimen unidos al nombre y al aro.</span></footer>
+  <dialog id="modal" aria-labelledby="modal-title">
+    <div class="modal-head"><div><span class="eyebrow" id="modal-tag">Tu creación</span><h2 id="modal-title">Descargar tu adorno</h2></div><button type="button" class="close" aria-label="Cerrar modal" data-close>×</button></div>
+    <section id="descarga-panel">
+      <p class="modal-intro">Revisa los detalles antes de llevarlo a tu impresora.</p>
+      <div class="file-preview"><div class="mini" id="miniatura"></div><div><p class="file-name" id="archivo">adorno-elisa.stl</p><p class="file-type">STL · Unidades en milímetros</p></div></div>
+      <div class="summary"><div><span>Tamaño del nombre</span><span id="modal-size">100 %</span></div><div><span>Helper de base</span><span id="modal-helper">Activado</span></div><div><span>Puntos y acentos</span><span>Apoyos conservados</span></div></div>
+      <div class="modal-actions"><button type="button" class="secondary" data-close>Volver al diseño</button><button type="button" class="primary" id="generar"><span aria-hidden="true">↓</span>Generar y descargar</button></div>
+      <p class="modal-note" id="descarga-estado" aria-live="polite">El STL se comprobará antes de descargarse.</p>
+    </section>
+    <section id="ayuda-panel" hidden>
+      <p class="modal-intro">Cada apoyo tiene una función distinta.</p>
+      <div class="help-section"><h3>Base horizontal</h3><p>Sujeta el nombre al aro y sigue la línea de escritura. Puedes quitarla cuando el nombre ya quede unido por sí mismo.</p></div>
+      <div class="help-section"><h3>Puntos y acentos</h3><p>Conservan sus pequeños apoyos aunque desactives la base. Así el punto de la i y las tildes siguen unidos a su letra.</p></div>
+      <div class="help-section"><h3>Si queda alguna parte suelta</h3><p>La aplicación te avisará para que ajustes el tamaño o vuelvas a activar la base. También comprueba que los contactos tengan suficiente material.</p></div>
+      <div class="help-end"><button type="button" class="primary" data-close>Entendido</button></div>
+    </section>
+  </dialog>
+</main>
 <script>
-let generation=0,timer,canExport=false;
 const $=id=>document.getElementById(id);
+let revision=0,timer,previewRunning=false,previewQueued=false,exporting=false,currentInfo=null,currentQuery='',currentSvg='',busyRetries=0;
 const params=()=>new URLSearchParams({nombre:$('nombre').value,escala:$('tamano').value,posicion:$('posicion').value,helper:$('helper').checked?'1':'0'});
+function syncButtons(){
+  const ready=currentInfo?.puede_exportar===true&&currentQuery===params().toString()&&!exporting;
+  $('exportar').disabled=!ready;$('generar').disabled=!ready;
+}
+function status(text,error=false){$('estado').textContent=text;$('estado').className=error?'status error':'status';}
 async function update(){
-  let id=++generation;
-  canExport=false;$('exportar').disabled=true;
+  if(previewRunning||exporting){previewQueued=true;return;}
+  previewRunning=true;previewQueued=false;
+  const id=revision,query=params().toString();
+  $('preview').setAttribute('aria-busy','true');
   try{
-    let r=await fetch('/preview?'+params()),d=await r.json();
-    if(id!==generation)return;
-    if(!r.ok)throw Error(d.error);
-    $('preview').innerHTML=d.svg;
-    $('estado').className='';
-    $('estado').textContent=`Nombre: ${d.info.ancho_texto_mm} × ${d.info.alto_texto_mm} mm. ${d.info.aviso}`;
-    const support=d.info.sujecion;
+    const response=await fetch('/preview?'+query),data=await response.json();
+    if(id!==revision)return;
+    if(response.status===429&&busyRetries<3){busyRetries++;clearTimeout(timer);timer=setTimeout(update,700);return;}
+    if(!response.ok)throw Error(data.error||'No se pudo preparar la vista previa.');
+    busyRetries=0;currentInfo=data.info;currentQuery=query;currentSvg=data.svg;
+    $('preview').innerHTML=currentSvg;
+    const support=currentInfo.sujecion;
     $('sujecion').hidden=!support;
-    $('sujecion').className=support&&support.estado!=='unido'?'hint warning':'hint';
-    $('sujecion').textContent=support?support.aviso:'';
-    canExport=d.info.puede_exportar;
-    $('exportar').disabled=!canExport;
-  }catch(e){
-    if(id!==generation)return;
-    $('estado').className='error';$('estado').textContent=e.message;
-    $('sujecion').hidden=true;
+    $('sujecion').className=support&&support.estado!=='unido'?'support-note warning':'support-note';
+    $('sujecion').textContent=support?.aviso||'';
+    status(`Nombre: ${currentInfo.ancho_texto_mm} × ${currentInfo.alto_texto_mm} mm. ${currentInfo.aviso}`);
+  }catch(error){
+    if(id!==revision)return;
+    currentInfo=null;currentSvg='';$('preview').replaceChildren();$('sujecion').hidden=true;
+    status(error.message,true);
+  }finally{
+    previewRunning=false;$('preview').setAttribute('aria-busy','false');syncButtons();
+    if(previewQueued||id!==revision){previewQueued=false;clearTimeout(timer);timer=setTimeout(update,150);}
   }
 }
-for(let id of ['nombre','tamano','posicion','helper'])$(id).addEventListener('input',()=>{
-  $('escala-valor').textContent=$('tamano').value+' %';
-  clearTimeout(timer);generation++;canExport=false;$('exportar').disabled=true;
-  $('sujecion').hidden=true;timer=setTimeout(update,350);
+for(const id of ['nombre','tamano','posicion','helper'])$(id).addEventListener('input',()=>{
+  revision++;busyRetries=0;currentInfo=null;currentQuery='';$('sujecion').hidden=true;
+  $('escala-valor').textContent=$('tamano').value+' %';$('posicion-valor').textContent=$('posicion').value+' mm';
+  status('Actualizando la vista previa…');
+  syncButtons();clearTimeout(timer);timer=setTimeout(update,300);
 });
-$('exportar').onclick=async()=>{
-  if(!canExport)return;
-  let button=$('exportar'),id=generation;
-  button.disabled=true;$('estado').textContent='Generando y comprobando el STL…';
+function openModal(kind){
+  if(kind==='download'&&(!currentInfo?.puede_exportar||exporting))return;
+  $('descarga-panel').hidden=kind!=='download';$('ayuda-panel').hidden=kind!=='help';
+  $('modal-title').textContent=kind==='download'?'Descargar tu adorno':'Sobre los apoyos';
+  $('modal-tag').textContent=kind==='download'?'Tu creación':'Pequeños detalles';
+  if(kind==='download'){
+    const slug=currentInfo.nombre.normalize('NFKD').replace(/[^a-zA-Z0-9-]/g,'').toLowerCase()||'nombre';
+    $('archivo').textContent='adorno-'+slug+'.stl';$('miniatura').innerHTML=currentSvg;
+    $('modal-size').textContent=$('tamano').value+' %';$('modal-helper').textContent=$('helper').checked?'Activado':'Desactivado';
+    $('descarga-estado').textContent='El STL se comprobará antes de descargarse.';$('descarga-estado').className='modal-note';
+  }
+  $('modal').showModal();
+}
+$('exportar').addEventListener('click',()=>openModal('download'));
+$('ayuda').addEventListener('click',()=>openModal('help'));
+document.querySelectorAll('[data-close]').forEach(button=>button.addEventListener('click',()=>$('modal').close()));
+$('modal').addEventListener('click',event=>{
+  if(event.target!==$('modal'))return;
+  const box=$('modal').getBoundingClientRect();
+  if(event.clientX<box.left||event.clientX>box.right||event.clientY<box.top||event.clientY>box.bottom)$('modal').close();
+});
+$('generar').addEventListener('click',async()=>{
+  if(!currentInfo?.puede_exportar||exporting||currentQuery!==params().toString())return;
+  const query=currentQuery,id=revision;exporting=true;syncButtons();
+  $('generar').setAttribute('aria-busy','true');$('generar').textContent='Generando…';
+  $('descarga-estado').className='modal-note';$('descarga-estado').textContent='Generando y comprobando el STL…';
   try{
-    let r=await fetch('/export?'+params());
-    if(!r.ok)throw Error((await r.json()).error);
-    let blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');
-    a.href=url;a.download=(r.headers.get('Content-Disposition').match(/filename="([^"]+)"/)||[])[1]||'adorno.stl';
-    a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);
-    if(id===generation){$('estado').className='';$('estado').textContent='STL comprobado: dos piezas cerradas, sin bordes abiertos ni aristas non-manifold.';}
-  }catch(e){if(id===generation){$('estado').className='error';$('estado').textContent=e.message;}}
-  finally{button.disabled=!canExport;}
-};
-update();
-</script></html>
+    const response=await fetch('/export?'+query);
+    if(!response.ok){const data=await response.json();throw Error(data.error||'No se pudo generar el archivo.');}
+    const blob=await response.blob(),url=URL.createObjectURL(blob),link=document.createElement('a');
+    link.href=url;link.download=(response.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)||[])[1]||'adorno.stl';
+    document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);
+    const message='STL comprobado: dos piezas cerradas, sin bordes abiertos ni aristas non-manifold.';
+    $('descarga-estado').textContent=message;if(id===revision)status(message);
+  }catch(error){$('descarga-estado').textContent=error.message;$('descarga-estado').className='modal-note error';}
+  finally{
+    exporting=false;$('generar').removeAttribute('aria-busy');$('generar').textContent='Generar y descargar';syncButtons();
+    if(previewQueued){previewQueued=false;clearTimeout(timer);timer=setTimeout(update,150);}
+  }
+});
+syncButtons();update();
+</script>
+</html>

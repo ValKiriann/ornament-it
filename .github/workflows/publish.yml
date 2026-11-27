@@ -72,7 +72,7 @@ jobs:
           import io, json, urllib.request, urllib.error, trimesh
           from generador import audit
           base='http://127.0.0.1:8768'
-          for query in ('nombre=Adri%C3%A1n','nombre=Elisa&escala=104&helper=0','nombre=Elsa&escala=104&helper=0'):
+          for query in ('nombre=Borja','nombre=Adri%C3%A1n','nombre=Elisa&escala=104&helper=0','nombre=Elsa&escala=104&helper=0'):
               data=urllib.request.urlopen(base+'/export?'+query,timeout=60).read()
               check=audit(trimesh.load_mesh(io.BytesIO(data),file_type='stl'))
               assert check['piezas']==2 and check['cerrada'] and not check['aristas_non_manifold'] and not check['bordes_abiertos'], check
