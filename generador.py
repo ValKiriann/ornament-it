@@ -186,7 +186,8 @@ def prepare(name='Elisa',size=None,shift=0,*,fill=100,base_helper_enabled=True):
     text,glyphs=fit_text(raw,glyphs,size,shift,fill)
     a,b,c,d=text.bounds
     report={'nombre':name,'ancho_texto_mm':round(c-a,3),'alto_texto_mm':round(d-b,3),
-            'escala_porcentaje':fill,'radio_limite_texto_mm':round(TEXT_RADIUS*fill/100,3),
+            'escala_porcentaje':fill,
+            'radio_limite_texto_mm':round(TEXT_RADIUS*fill/100+abs(shift)*abs(1-fill/100),3),
             'letras_z_mm':3,'helpers_z_mm':1.2,'helpers_ancho_mm':1,'version_helpers':2,
             'helper_base':base_helper_enabled,'apoyos_de_marcas':[], 'enlaces_automaticos':0,
             'puede_exportar':True,

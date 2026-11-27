@@ -94,6 +94,15 @@ class GeometryTests(unittest.TestCase):
                     self.assertGreater(mark['solape_marca_mm2'],.02)
                     self.assertGreater(mark['solape_letra_mm2'],.02)
 
+    def test_larger_text_stays_inside_the_original_ring_envelope(self):
+        for name in ('Elsa','Elisa','Adrián','I'):
+            for shift in (-3,3):
+                with self.subTest(name=name,shift=shift):
+                    _,text,_,report=prepare(name,fill=106,shift=shift)
+                    radius=np.linalg.norm(shapely.get_coordinates(text)-[1.64,1.03],axis=1).max()
+                    self.assertLess(radius,26.1)  # Ring outer radius is approximately 27 mm.
+                    self.assertLessEqual(radius,report['radio_limite_texto_mm']+.001)
+
     def test_invalid_inputs(self):
         for name, size, shift in (('',19.5,0), ('A'*19,19.5,0), ('<script>',19.5,0), ('Elisa',float('nan'),0), ('Elisa',19.5,4)):
             with self.subTest(name=name, size=size, shift=shift):
