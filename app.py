@@ -6,7 +6,7 @@ import io, json, logging, os, threading, unicodedata
 import trimesh
 from generador import generate, preview, audit, ROOT
 
-VERSION = '0.1.0'
+VERSION = '0.1.1'
 COMMIT = os.environ.get('ORNAMENT_COMMIT', 'development')
 GEOMETRY_SLOT = threading.BoundedSemaphore(1)
 LOG = logging.getLogger('ornament-it')
@@ -46,12 +46,13 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             q = parse_qs(url.query)
-            args = (q.get('nombre', ['Elisa'])[0], float(q.get('tamano', ['19.5'])[0]), float(q.get('posicion', ['0'])[0]))
+            args = (q.get('nombre', ['Elisa'])[0], float(q['tamano'][0]) if 'tamano' in q else None, float(q.get('posicion', ['0'])[0]))
+            fill = float(q.get('escala', ['100'])[0])
             if url.path == '/preview':
-                svg, report = preview(*args)
+                svg, report = preview(*args, fill=fill)
                 self.json_response(200, {'svg': svg, 'info': report})
             else:
-                mesh, report = generate(*args)
+                mesh, report = generate(*args, fill=fill)
                 body = mesh.export(file_type='stl')
                 checked = audit(trimesh.load_mesh(io.BytesIO(body), file_type='stl', process=True))
                 if checked['piezas'] != 2 or not checked['cerrada'] or checked['bordes_abiertos'] or checked['aristas_non_manifold']:

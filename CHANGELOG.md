@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.1.1
+
+- Ajuste automático del nombre al espacio interior del aro, sin el límite fijo de 21 mm.
+- Escala inicial del 100 %, con control del 40 al 100 % y margen de unos 0,6 mm respecto al aro.
+- Escalado proporcional y centrado según el contorno real, incluidos puntos y tildes.
+
 ## 0.1.0
 
 - Primera POC en contenedor, basada en el personalizador local existente.

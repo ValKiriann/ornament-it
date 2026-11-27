@@ -1,7 +1,7 @@
 # ornament-it
 
 Personalizador de adornos imprimibles con nombres en Lobster y helpers automáticos.
-POC 0.1.0 para uso en red local o VPN. Conserva el copo y aro del diseño de referencia;
+POC 0.1.1 para uso en red local o VPN. Conserva el copo y aro del diseño de referencia;
 une el nombre y sus apoyos al aro, manteniendo el copo independiente.
 
 ## Ejecutar el contenedor
@@ -11,7 +11,7 @@ docker run --rm --name ornament-it \
   -p 127.0.0.1:8768:8768 \
   --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m \
   --cap-drop ALL --security-opt no-new-privileges \
-  ghcr.io/valkiriann/ornament-it:0.1.0
+  ghcr.io/valkiriann/ornament-it:0.1.1
 ```
 
 Abrir http://127.0.0.1:8768. Para el homelab, el Compose está en
@@ -22,6 +22,18 @@ La aplicación genera y comprueba el STL en memoria. No conserva nombres, STL ni
 historial; no necesita un volumen de datos ni Fusion instalado. Las descargas
 conservan letras de 3 mm y helpers de 1,2 mm de altura y 1 mm de ancho. La base
 original tiene una pequeña desviación de Z de unos 0,0075 mm, que se conserva.
+
+## Tamaño del nombre
+
+Cada nombre empieza al 100 %: la mayor escala proporcional que cabe en el disco
+interior de radio 24,4 mm, dejando aproximadamente 0,6 mm hasta el aro. Se tienen
+en cuenta todos los contornos, puntos y tildes. El control permite reducirlo
+hasta el 40 %. Al subir o bajar el nombre se recalcula el tamaño que cabe.
+No se cambia el espaciado de la fuente ni la proporción entre ancho y alto.
+
+La API usa `escala=40..100` (100 por defecto) y `posicion=-3..3` en milímetros.
+El parámetro anterior `tamano` sigue aceptando una altura máxima en milímetros
+(8..48), aunque la interfaz utiliza porcentaje para evitar tramos sin efecto.
 
 ## Desarrollo
 
@@ -44,9 +56,9 @@ las solicitudes adicionales reciben una respuesta de ocupado.
 
 1. Cambiar `VERSION` en `app.py` y documentar los cambios.
 2. Enviar el código a GitHub y comprobar CI.
-3. Crear y subir una etiqueta como `v0.1.0`.
+3. Crear y subir una etiqueta como `v0.1.1`.
 4. El workflow prueba los nombres, construye la imagen, prueba el contenedor con
-   un STL reabierto y publica `:0.1.0` y `:sha-<commit-completo>` en GHCR.
+   un STL reabierto y publica `:0.1.1` y `:sha-<commit-completo>` en GHCR.
 5. Actualizar la referencia de imagen del Compose en `homelab` y redesplegar con Komodo.
 
 Cada etiqueta de versión corresponde a una publicación. No reutilizar una etiqueta

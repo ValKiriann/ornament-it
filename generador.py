@@ -108,28 +108,49 @@ def centered_accent_link(mark, body):
                  'anclaje_letra_mm':[round(anchor.x,3),round(anchor.y,3)],
                  'solape_marca_mm2':round(mark_overlap,4),'solape_letra_mm2':round(body_overlap,4)}
 
-def prepare(name='Elisa',size=19.5,shift=0):
+TEXT_RADIUS=24.4  # The reference ring's inner radius is approximately 25 mm.
+
+def fit_text(raw, glyphs, size, shift, fill):
+    a,b,c,d=raw.bounds
+    cx=(a+c)/2
+    points=shapely.get_coordinates(raw)
+    # Find the vertical centre that admits the largest proportional text.
+    # The maximum squared radius is convex in the centre's Y coordinate.
+    lo,hi=b,d
+    def radius_squared(y):
+        return np.max((points[:,0]-cx)**2+(points[:,1]-y)**2)
+    for _ in range(64):
+        left,right=(2*lo+hi)/3,(lo+2*hi)/3
+        if radius_squared(left)<radius_squared(right): hi=right
+        else: lo=left
+    cy=(lo+hi)/2
+    centered=points-[cx,cy]
+    squared=np.sum(centered**2,axis=1)
+    valid=squared>0
+    # Solve |factor * vertex + (0, shift)| <= TEXT_RADIUS for every
+    # contour vertex, including accents. A segment stays inside the disc
+    # whenever its endpoints do, so this also bounds the full outline.
+    cross=centered[valid,1]*shift
+    limits=(-cross+np.sqrt(cross**2+squared[valid]*(TEXT_RADIUS**2-shift**2)))/squared[valid]
+    factor=float(limits.min())*(1-1e-8)
+    if size is not None: factor=min(factor,size/(d-b))
+    factor*=fill/100
+    def transform(shape):
+        shape=translate(shape,xoff=-cx,yoff=-cy)
+        shape=scale(shape,xfact=factor,yfact=factor,origin=(0,0))
+        return translate(shape,xoff=1.64,yoff=1.03+shift)
+    return transform(raw),[transform(glyph) for glyph in glyphs]
+
+def prepare(name='Elisa',size=None,shift=0,*,fill=100):
     name=unicodedata.normalize('NFC',name.strip())
     if not name or len(name)>18: raise ValueError('Escribe un nombre de entre 1 y 18 caracteres.')
     if any(not(c.isalpha() or c in ' -') for c in name): raise ValueError('Usa letras, espacios o guiones.')
-    size=float(size); shift=float(shift)
-    if not 8<=size<=21 or not -3<=shift<=3: raise ValueError('El tamaño o la posición están fuera del rango permitido.')
-    raw,glyphs=text_shape(name,with_glyphs=True); a,b,c,d=raw.bounds
-    factor=min(size/(d-b),48/(c-a))
-    text=scale(raw,xfact=factor,yfact=factor,origin=(0,0))
-    glyphs=[scale(g,xfact=factor,yfact=factor,origin=(0,0)) for g in glyphs]
-    a,b,c,d=text.bounds
-    dx,dy=1.64-(a+c)/2,-7.1-b+shift
-    text=translate(text,xoff=dx,yoff=dy)
-    glyphs=[translate(g,xoff=dx,yoff=dy) for g in glyphs]
-    # Fit all vertices inside the inner ring with a safety margin for rotation.
-    circle=Point(1.64,1.03).buffer(24.9,quad_segs=128)
-    if not circle.covers(text):
-        for _ in range(60):
-            text=scale(text,xfact=.99,yfact=.99,origin=(1.64,1.03))
-            glyphs=[scale(g,xfact=.99,yfact=.99,origin=(1.64,1.03)) for g in glyphs]
-            if circle.covers(text): break
-        else: raise ValueError('El nombre no cabe dentro del aro.')
+    size=float(size) if size is not None else None
+    shift=float(shift); fill=float(fill)
+    if (size is not None and not 8<=size<=48) or not -3<=shift<=3 or not 40<=fill<=100:
+        raise ValueError('El tamaño o la posición están fuera del rango permitido.')
+    raw,glyphs=text_shape(name,with_glyphs=True)
+    text,glyphs=fit_text(raw,glyphs,size,shift,fill)
     a,b,c,d=text.bounds; bar_y=b+1.65
     half=math.sqrt(26.5**2-(bar_y-1.03)**2)
     helpers=box(1.64-half,bar_y-.5,1.64+half,bar_y+.5)
@@ -156,7 +177,7 @@ def prepare(name='Elisa',size=19.5,shift=0):
             links.append(link); helpers=unary_union([helpers,link])
             connected=unary_union([connected,link])
         connected=unary_union([connected,region])
-    return name,text,helpers,{'nombre':name,'ancho_texto_mm':round(c-a,3),'alto_texto_mm':round(d-b,3),'letras_z_mm':3,'helpers_z_mm':1.2,'helpers_ancho_mm':1,'version_helpers':2,'apoyos_de_marcas':anchors,'enlaces_automaticos':len(links),'aviso':('Nombre reducido: revisa que los trazos sean adecuados para tu impresora.' if d-b<10 else 'Prototipo: pendiente de prueba física de impresión.')}
+    return name,text,helpers,{'nombre':name,'ancho_texto_mm':round(c-a,3),'alto_texto_mm':round(d-b,3),'escala_porcentaje':fill,'radio_limite_texto_mm':TEXT_RADIUS,'letras_z_mm':3,'helpers_z_mm':1.2,'helpers_ancho_mm':1,'version_helpers':2,'apoyos_de_marcas':anchors,'enlaces_automaticos':len(links),'aviso':('Nombre reducido: revisa que los trazos sean adecuados para tu impresora.' if d-b<10 else 'Prototipo: pendiente de prueba física de impresión.')}
 
 def solid_union(meshes):
     combined=None
@@ -167,8 +188,8 @@ def solid_union(meshes):
     data=combined.simplify().to_mesh64()
     return trimesh.Trimesh(vertices=data.vert_properties[:,:3],faces=data.tri_verts,process=False)
 
-def generate(name='Elisa',size=19.5,shift=0):
-    name,text,helpers,report=prepare(name,size,shift)
+def generate(name='Elisa',size=None,shift=0,*,fill=100):
+    name,text,helpers,report=prepare(name,size,shift,fill=fill)
     base=load_base()
     lower=extrude(unary_union([text,helpers]),1.2)
     upper=extrude(text,1.81)
@@ -185,8 +206,8 @@ def audit(mesh):
     _,counts=np.unique(np.sort(mesh.edges,axis=1),axis=0,return_counts=True)
     return {'piezas':len(mesh.split(only_watertight=False)),'bordes_abiertos':int(sum(counts==1)),'aristas_non_manifold':int(sum(counts>2)),'cerrada':bool(mesh.is_watertight),'dimensiones_mm':np.round(mesh.extents,3).tolist(),'triangulos':len(mesh.faces)}
 
-def preview(name='Elisa',size=19.5,shift=0):
-    name,text,helpers,report=prepare(name,size,shift)
+def preview(name='Elisa',size=None,shift=0,*,fill=100):
+    name,text,helpers,report=prepare(name,size,shift,fill=fill)
     def path(g,color):
         return f'<path fill="{color}" fill-rule="evenodd" d="'+''.join('M'+' L'.join(f'{x:.4f},{-y:.4f}' for x,y in ring.coords)+'Z' for p in components(g) for ring in [p.exterior,*p.interiors])+'"/>'
     base=load_base(); basepaths=[]
