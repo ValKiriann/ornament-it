@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.1.2
+
+- Checkbox para quitar solo el helper de base, manteniendo los apoyos de puntos y acentos.
+- Control de tamaño ampliado hasta el 106 % para unir directamente el nombre al aro.
+- Aviso de partes sueltas o contactos pequeños sin base, con descarga bloqueada hasta corregirlos.
+- Comprobación de STL sin base para Elsa y Elisa, conservando el copo independiente.
+
 ## 0.1.1
 
 - Ajuste automático del nombre al espacio interior del aro, sin el límite fijo de 21 mm.
