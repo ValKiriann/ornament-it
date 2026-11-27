@@ -55,8 +55,44 @@ class GeometryTests(unittest.TestCase):
             for percent in (40,70,99):
                 report=prepare(name,fill=percent)[3]
                 self.assertAlmostEqual(report['ancho_texto_mm']/full['ancho_texto_mm'],percent/100,places=4)
-        for invalid in (39,101,float('nan'),float('inf')):
+        for invalid in (39,107,float('nan'),float('inf')):
             with self.assertRaises(ValueError): prepare('Elsa',fill=invalid)
+
+    def test_optional_helpers_check_loose_and_weak_attachments(self):
+        for name,fill,state in (('Elsa',100,'suelto'),('Elsa',103,'debil'),
+                                ('Elsa',104,'unido'),('Elisa',100,'suelto')):
+            with self.subTest(name=name,fill=fill):
+                _,_,helpers,report=prepare(name,fill=fill,base_helper_enabled=False)
+                if name=='Elsa': self.assertTrue(helpers.is_empty)
+                self.assertEqual(report['sujecion']['estado'],state)
+                self.assertEqual(report['puede_exportar'],state=='unido')
+                if state!='unido':
+                    with self.assertRaises(ValueError): generate(name,fill=fill,base_helper_enabled=False)
+
+    def test_reopened_stl_without_helpers_and_extended_size(self):
+        for name,fill,helper in (('Elsa',104,False),('Elsa',106,False),('I',105,False),
+                                 ('Adrián',106,True),('Elisa',104,False),('Elisa',106,False),('Elisa',106,True)):
+            with self.subTest(name=name,fill=fill,helper=helper):
+                mesh,_=generate(name,fill=fill,base_helper_enabled=helper)
+                checked=audit(trimesh.load_mesh(io.BytesIO(mesh.export(file_type='stl')),file_type='stl'))
+                self.assertEqual(checked['piezas'],2)
+                self.assertTrue(checked['cerrada'])
+                self.assertEqual(checked['bordes_abiertos'],0)
+                self.assertEqual(checked['aristas_non_manifold'],0)
+
+    def test_removing_base_preserves_accent_and_dot_helpers(self):
+        for name in ('Elisa','Adrián','Toñi'):
+            with self.subTest(name=name):
+                _,text,helpers,report=prepare(name,fill=104,base_helper_enabled=False)
+                _,original,with_base,full=prepare(name,fill=104)
+                self.assertTrue(text.equals(original))
+                self.assertTrue(with_base.covers(helpers))
+                self.assertLess(helpers.area,with_base.area/2)
+                self.assertTrue(report['apoyos_de_marcas'])
+                self.assertEqual(report['apoyos_de_marcas'],full['apoyos_de_marcas'])
+                for mark in report['apoyos_de_marcas']:
+                    self.assertGreater(mark['solape_marca_mm2'],.02)
+                    self.assertGreater(mark['solape_letra_mm2'],.02)
 
     def test_invalid_inputs(self):
         for name, size, shift in (('',19.5,0), ('A'*19,19.5,0), ('<script>',19.5,0), ('Elisa',float('nan'),0), ('Elisa',19.5,4)):
@@ -74,7 +110,7 @@ class HttpTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.server.shutdown(); cls.server.server_close(); cls.thread.join()
     def test_health_and_no_history(self):
-        self.assertEqual(json.load(urllib.request.urlopen(self.base+'/healthz'))['version'],'0.1.1')
+        self.assertEqual(json.load(urllib.request.urlopen(self.base+'/healthz'))['version'],'0.1.2')
         with urllib.request.urlopen(self.base+'/export?'+urllib.parse.urlencode({'nombre':'Adrián'})) as response:
             self.assertIn('adorno-adrian.stl',response.headers['Content-Disposition'])
             mesh=trimesh.load_mesh(io.BytesIO(response.read()),file_type='stl')
@@ -96,5 +132,27 @@ class HttpTests(unittest.TestCase):
         reduced=json.load(urllib.request.urlopen(self.base+'/preview?nombre=Elsa&escala=80'))['info']
         self.assertGreater(full['ancho_texto_mm'],47)
         self.assertAlmostEqual(reduced['ancho_texto_mm']/full['ancho_texto_mm'],.8,places=4)
+
+    def test_helper_warning_and_export_enforcement(self):
+        route=self.base+'/preview?nombre=Elsa&helper=0'
+        loose=json.load(urllib.request.urlopen(route))['info']
+        self.assertFalse(loose['puede_exportar'])
+        self.assertEqual(loose['sujecion']['estado'],'suelto')
+        strong=json.load(urllib.request.urlopen(route+'&escala=104'))['info']
+        self.assertTrue(strong['puede_exportar'])
+        elisa=json.load(urllib.request.urlopen(self.base+'/preview?nombre=Elisa&helper=0&escala=104'))['info']
+        self.assertTrue(elisa['puede_exportar'])
+        self.assertFalse(elisa['helper_base'])
+        self.assertEqual(len(elisa['apoyos_de_marcas']),1)
+        for suffix in ('','&escala=103'):
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(self.base+'/export?nombre=Elsa&helper=0'+suffix)
+            self.assertEqual(ctx.exception.code,400)
+        with urllib.request.urlopen(self.base+'/export?nombre=Elsa&helper=0&escala=104') as response:
+            checked=audit(trimesh.load_mesh(io.BytesIO(response.read()),file_type='stl'))
+            self.assertEqual(checked['piezas'],2)
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            urllib.request.urlopen(self.base+'/preview?nombre=Elsa&helper=false')
+        self.assertEqual(ctx.exception.code,400)
 
 if __name__=='__main__': unittest.main()

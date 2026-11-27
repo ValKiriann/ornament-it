@@ -1,5 +1,6 @@
 """Personalizador local. Geometría base extraída de Fusion, unidades mm."""
 from pathlib import Path
+from functools import lru_cache
 import json, math, unicodedata
 import numpy as np
 import shapely
@@ -109,6 +110,38 @@ def centered_accent_link(mark, body):
                  'solape_marca_mm2':round(mark_overlap,4),'solape_letra_mm2':round(body_overlap,4)}
 
 TEXT_RADIUS=24.4  # The reference ring's inner radius is approximately 25 mm.
+MAX_FILL=106  # Overlap the inner edge without reaching the ring's outer edge.
+
+@lru_cache(maxsize=1)
+def ring_outline():
+    mesh=load_base()['aro']
+    return unary_union([Polygon(triangle[:,:2]) for triangle in mesh.triangles
+                        if Polygon(triangle[:,:2]).area>1e-9])
+
+def attachment_report(text):
+    ring=ring_outline()
+    anchor=ring.buffer(-.4).representative_point()
+    joined=unary_union([ring,text])
+    loose=sum(not part.covers(anchor) for part in components(joined))
+    overlap=text.intersection(ring).area
+    # Remove 0.4 mm from both sides to find necks below 0.8 mm. Test
+    # substantial letter cores, ignoring tiny fragments of curved outlines.
+    eroded=joined.buffer(-.4)
+    attached=unary_union([part for part in components(eroded) if part.covers(anchor)])
+    weak=any(part.area>.05 and part.difference(attached).area>.05
+             for part in components(text.buffer(-.4)))
+    if loose:
+        state='suelto'
+        detail='queda una parte' if loose==1 else f'quedan {loose} partes'
+        message=f'Sin la base {detail} del nombre sin unir al aro. Aumenta el tamaño o activa el helper de base para descargar.'
+    elif overlap<1 or weak:
+        state='debil'
+        message='El nombre toca el aro, pero alguna unión es demasiado pequeña. Aumenta el tamaño o activa el helper de base para descargar.'
+    else:
+        state='unido'
+        message='Sin base: el nombre y sus puntos o acentos quedan unidos al aro. Resistencia pendiente de prueba física.'
+    return {'estado':state,'partes_sueltas':loose,'solape_aro_mm2':round(overlap,4),
+            'solape_minimo_mm2':1,'cuello_minimo_mm':.8,'aviso':message}
 
 def fit_text(raw, glyphs, size, shift, fill):
     a,b,c,d=raw.bounds
@@ -141,19 +174,23 @@ def fit_text(raw, glyphs, size, shift, fill):
         return translate(shape,xoff=1.64,yoff=1.03+shift)
     return transform(raw),[transform(glyph) for glyph in glyphs]
 
-def prepare(name='Elisa',size=None,shift=0,*,fill=100):
+def prepare(name='Elisa',size=None,shift=0,*,fill=100,base_helper_enabled=True):
     name=unicodedata.normalize('NFC',name.strip())
     if not name or len(name)>18: raise ValueError('Escribe un nombre de entre 1 y 18 caracteres.')
     if any(not(c.isalpha() or c in ' -') for c in name): raise ValueError('Usa letras, espacios o guiones.')
     size=float(size) if size is not None else None
     shift=float(shift); fill=float(fill)
-    if (size is not None and not 8<=size<=48) or not -3<=shift<=3 or not 40<=fill<=100:
+    if (size is not None and not 8<=size<=48) or not -3<=shift<=3 or not 40<=fill<=MAX_FILL:
         raise ValueError('El tamaño o la posición están fuera del rango permitido.')
     raw,glyphs=text_shape(name,with_glyphs=True)
     text,glyphs=fit_text(raw,glyphs,size,shift,fill)
-    a,b,c,d=text.bounds; bar_y=b+1.65
-    half=math.sqrt(26.5**2-(bar_y-1.03)**2)
-    helpers=box(1.64-half,bar_y-.5,1.64+half,bar_y+.5)
+    a,b,c,d=text.bounds
+    report={'nombre':name,'ancho_texto_mm':round(c-a,3),'alto_texto_mm':round(d-b,3),
+            'escala_porcentaje':fill,'radio_limite_texto_mm':round(TEXT_RADIUS*fill/100,3),
+            'letras_z_mm':3,'helpers_z_mm':1.2,'helpers_ancho_mm':1,'version_helpers':2,
+            'helper_base':base_helper_enabled,'apoyos_de_marcas':[], 'enlaces_automaticos':0,
+            'puede_exportar':True,
+            'aviso':('Nombre reducido: revisa que los trazos sean adecuados para tu impresora.' if d-b<10 else 'Prototipo: pendiente de prueba física de impresión.')}
     accent_links=[]; anchors=[]
     for glyph in glyphs:
         parts=components(glyph)
@@ -163,6 +200,15 @@ def prepare(name='Elisa',size=None,shift=0,*,fill=100):
             if mark is body or mark.bounds[1]<body.bounds[3]-.05: continue
             link,info=centered_accent_link(mark,body)
             accent_links.append(link); anchors.append(info)
+    report.update(apoyos_de_marcas=anchors,enlaces_automaticos=len(accent_links))
+    if not base_helper_enabled:
+        helpers=unary_union(accent_links)
+        support=attachment_report(unary_union([text,helpers]))
+        report.update(sujecion=support,puede_exportar=support['estado']=='unido')
+        return name,text,helpers,report
+    bar_y=b+1.65
+    half=math.sqrt(26.5**2-(bar_y-1.03)**2)
+    helpers=box(1.64-half,bar_y-.5,1.64+half,bar_y+.5)
     # Join each accent to its own glyph first. Only then connect whole regions
     # to the bar, so a detached support cannot be mistaken for the main body.
     pending=components(unary_union([text,*accent_links])); connected=helpers
@@ -177,7 +223,8 @@ def prepare(name='Elisa',size=None,shift=0,*,fill=100):
             links.append(link); helpers=unary_union([helpers,link])
             connected=unary_union([connected,link])
         connected=unary_union([connected,region])
-    return name,text,helpers,{'nombre':name,'ancho_texto_mm':round(c-a,3),'alto_texto_mm':round(d-b,3),'escala_porcentaje':fill,'radio_limite_texto_mm':TEXT_RADIUS,'letras_z_mm':3,'helpers_z_mm':1.2,'helpers_ancho_mm':1,'version_helpers':2,'apoyos_de_marcas':anchors,'enlaces_automaticos':len(links),'aviso':('Nombre reducido: revisa que los trazos sean adecuados para tu impresora.' if d-b<10 else 'Prototipo: pendiente de prueba física de impresión.')}
+    report.update(apoyos_de_marcas=anchors,enlaces_automaticos=len(links))
+    return name,text,helpers,report
 
 def solid_union(meshes):
     combined=None
@@ -188,8 +235,9 @@ def solid_union(meshes):
     data=combined.simplify().to_mesh64()
     return trimesh.Trimesh(vertices=data.vert_properties[:,:3],faces=data.tri_verts,process=False)
 
-def generate(name='Elisa',size=None,shift=0,*,fill=100):
-    name,text,helpers,report=prepare(name,size,shift,fill=fill)
+def generate(name='Elisa',size=None,shift=0,*,fill=100,base_helper_enabled=True):
+    name,text,helpers,report=prepare(name,size,shift,fill=fill,base_helper_enabled=base_helper_enabled)
+    if not report['puede_exportar']: raise ValueError(report['sujecion']['aviso'])
     base=load_base()
     lower=extrude(unary_union([text,helpers]),1.2)
     upper=extrude(text,1.81)
@@ -206,9 +254,10 @@ def audit(mesh):
     _,counts=np.unique(np.sort(mesh.edges,axis=1),axis=0,return_counts=True)
     return {'piezas':len(mesh.split(only_watertight=False)),'bordes_abiertos':int(sum(counts==1)),'aristas_non_manifold':int(sum(counts>2)),'cerrada':bool(mesh.is_watertight),'dimensiones_mm':np.round(mesh.extents,3).tolist(),'triangulos':len(mesh.faces)}
 
-def preview(name='Elisa',size=None,shift=0,*,fill=100):
-    name,text,helpers,report=prepare(name,size,shift,fill=fill)
+def preview(name='Elisa',size=None,shift=0,*,fill=100,base_helper_enabled=True):
+    name,text,helpers,report=prepare(name,size,shift,fill=fill,base_helper_enabled=base_helper_enabled)
     def path(g,color):
+        if g.is_empty: return ''
         return f'<path fill="{color}" fill-rule="evenodd" d="'+''.join('M'+' L'.join(f'{x:.4f},{-y:.4f}' for x,y in ring.coords)+'Z' for p in components(g) for ring in [p.exterior,*p.interiors])+'"/>'
     base=load_base(); basepaths=[]
     for key,color in [('copo','#d8e7de'),('aro','#c5a46b')]:
